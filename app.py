@@ -1,43 +1,76 @@
 import streamlit as st
-import data
+from auth_utils import render_sidebar
 
+# --- Page Configuration ---
 st.set_page_config(
-    page_title="Support Ticket App",
+    page_title="Suppocket - Your Pocket Support Solution",
     page_icon="🎟️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Initialize session state for authentication
-if 'authenticated' not in st.session_state:
-    st.session_state['authenticated'] = False
-if 'user' not in st.session_state:
-    st.session_state['user'] = None
+# --- Sidebar ---
+render_sidebar()
 
-st.sidebar.title("Navigation")
+# --- Main Content ---
+st.title("Welcome to Suppocket 🎟️")
+st.markdown("### Your streamlined solution for managing support tickets efficiently.")
 
-if st.session_state['authenticated']:
-    st.sidebar.success(f"Logged in as {st.session_state['user']['name']} ({st.session_state['user']['role']})")
-    
-    st.sidebar.page_link("app.py", label="Home", icon="🏠")
-    st.sidebar.page_link("pages/3_Dashboard.py", label="Dashboard", icon="📊")
-    st.sidebar.page_link("pages/4_Create_Ticket.py", label="Create Ticket", icon="📝")
-    # st.sidebar.page_link("pages/5_Ticket_Details.py", label="Ticket Details", icon="🎫", disabled=True) # Will be accessed via dashboard
-    
-    if st.sidebar.button("Logout"):
-        st.session_state['authenticated'] = False
-        st.session_state['user'] = None
-        st.info("You have been logged out.")
-        st.rerun()
+st.markdown(
+    """
+    Suppocket is a modern, easy-to-use support ticket system designed to help businesses
+    manage customer inquiries and technical issues with ease. Our platform ensures that
+    every ticket is tracked, managed, and resolved promptly, improving customer satisfaction
+    and team productivity.
+    """
+)
+
+st.divider()
+
+# --- Key Features ---
+st.header("Key Features")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.subheader("📊 Centralized Dashboard")
+    st.write(
+        "Get a bird's-eye view of all your support tickets. "
+        "Track statuses, priorities, and assignments in one place."
+    )
+
+with col2:
+    st.subheader("📝 Effortless Ticket Creation")
+    st.write(
+        "Users can create detailed support tickets in seconds, "
+        "providing all necessary information for a swift resolution."
+    )
+
+with col3:
+    st.subheader("👤 User-Focused Profiles")
+    st.write(
+        "Manage your profile, track your ticket history, and "
+        "update your information with ease."
+    )
+
+st.divider()
+
+# --- Call to Action ---
+if not st.session_state.get('authenticated'):
+    st.header("Get Started")
+    st.write("Join us today and take control of your support process.")
+
+    cta_col1, cta_col2, _ = st.columns([1, 1, 4])
+
+    with cta_col1:
+        if st.button("Login", use_container_width=True, type="primary"):
+            st.switch_page("pages/1_Login.py")
+
+    with cta_col2:
+        if st.button("Register", use_container_width=True):
+            st.switch_page("pages/2_Register.py")
 else:
-    st.sidebar.info("Please log in or register.")
-    st.sidebar.page_link("app.py", label="Home", icon="🏠")
-    st.sidebar.page_link("pages/1_Login.py", label="Login", icon="🔑")
-    st.sidebar.page_link("pages/2_Register.py", label="Register", icon="✍️")
-
-st.title("Welcome to the Support Ticket Application 🎟️")
-
-if not st.session_state['authenticated']:
-    st.write("Please use the sidebar to log in or register to access the application features.")
-else:
-    st.write("You are logged in. Use the sidebar to navigate to the Dashboard or create a new ticket.")
-
+    st.header("You're Logged In!")
+    st.write("Use the sidebar to navigate to your Dashboard or create a new ticket.")
+    if st.button("Go to Dashboard", use_container_width=False, type="primary"):
+        st.switch_page("pages/3_Dashboard.py")
