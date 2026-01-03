@@ -22,12 +22,22 @@ current_user = st.session_state['user']
 user_role = current_user['role']
 
 all_tickets = []
+assigned_tickets = []
 if user_role == 'customer':
     all_tickets = get_tickets(customer_id=current_user['id'])
-elif user_role in ['agent', 'admin']:
+elif user_role == 'agent':
+    all_tickets = get_tickets(agent_id=current_user['id'], include_unassigned=True)
+    assigned_tickets = [ticket for ticket in all_tickets if ticket['agent_id'] == current_user['id']]
+elif user_role == 'admin':
     all_tickets = get_tickets()
 
 st.markdown("---")
+
+if user_role == 'agent' and assigned_tickets:
+    st.subheader("My Assigned Tickets")
+    assigned_df = pd.DataFrame(assigned_tickets)
+    st.dataframe(assigned_df[['id', 'title', 'status', 'priority', 'created_at']], use_container_width=True)
+    st.markdown("---")
 
 if all_tickets:
     df = pd.DataFrame(all_tickets)
