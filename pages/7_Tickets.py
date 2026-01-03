@@ -1,5 +1,5 @@
 import streamlit as st
-from db.database import get_tickets, get_user
+from db.database import get_tickets, get_user, update_ticket
 from auth_utils import render_sidebar
 
 st.set_page_config(
@@ -23,7 +23,9 @@ user_role = current_user['role']
 all_tickets = []
 if user_role == 'customer':
     all_tickets = get_tickets(customer_id=current_user['id'])
-elif user_role in ['agent', 'admin']:
+elif user_role == 'agent':
+    all_tickets = get_tickets(agent_id=current_user['id'], include_unassigned=True)
+elif user_role == 'admin':
     all_tickets = get_tickets()
 
 st.markdown("---")
@@ -63,7 +65,11 @@ if all_tickets:
         with col5:
             st.write(ticket['status'])
         with col6:
-            if st.button("View", key=f"view_{ticket['id']}"):
+            if user_role == 'agent' and ticket['agent_id'] is None:
+                if st.button("Take On", key=f"take_on_{ticket['id']}"):
+                    update_ticket(ticket_id=ticket['id'], agent_id=current_user['id'])
+                    st.experimental_rerun()
+            elif st.button("View", key=f"view_{ticket['id']}"):
                 st.session_state['selected_ticket_id'] = ticket['id']
                 st.switch_page("pages/5_Ticket_Details.py")
 else:

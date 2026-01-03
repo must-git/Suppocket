@@ -133,6 +133,18 @@ def get_all_customers():
     conn.close()
     return [dict(row) for row in customer_rows]
 
+def get_all_agents():
+    """
+    Retrieves all users with the role 'agent'.
+    Returns a list of dictionaries, each representing an agent.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, email FROM users WHERE role = 'agent'")
+    agent_rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in agent_rows]
+
 # --- Ticket CRUD Functions ---
 
 def create_ticket(title, description, customer_id, category, priority):
@@ -170,7 +182,7 @@ def get_ticket_by_id(ticket_id):
         return dict(ticket_row)
     return None
 
-def get_tickets(customer_id=None, agent_id=None, status=None):
+def get_tickets(customer_id=None, agent_id=None, status=None, include_unassigned=False):
     """
     Retrieves a list of tickets, with optional filtering.
     """
@@ -184,9 +196,13 @@ def get_tickets(customer_id=None, agent_id=None, status=None):
     if customer_id:
         filters.append("customer_id = ?")
         params.append(customer_id)
-    if agent_id:
-        filters.append("agent_id = ?")
-        params.append(agent_id)
+    if agent_id is not None:
+        if include_unassigned:
+            filters.append("(agent_id = ? OR agent_id IS NULL)")
+            params.append(agent_id)
+        else:
+            filters.append("agent_id = ?")
+            params.append(agent_id)
     if status:
         filters.append("status = ?")
         params.append(status)
