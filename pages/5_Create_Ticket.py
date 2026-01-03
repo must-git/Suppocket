@@ -21,7 +21,6 @@ current_user = st.session_state['user']
 
 customer_id_for_ticket = None
 if current_user['role'] == 'customer':
-    st.subheader(f"Creating ticket as: {current_user['username']}")
     customer_id_for_ticket = current_user['id']
 else:
     st.subheader("Creating ticket (for an existing customer)")

@@ -68,9 +68,9 @@ if all_tickets:
             if user_role == 'agent' and ticket['agent_id'] is None:
                 if st.button("Take On", key=f"take_on_{ticket['id']}"):
                     update_ticket(ticket_id=ticket['id'], agent_id=current_user['id'])
-                    st.experimental_rerun()
+                    st.rerun()
             elif st.button("View", key=f"view_{ticket['id']}"):
                 st.session_state['selected_ticket_id'] = ticket['id']
-                st.switch_page("pages/5_Ticket_Details.py")
+                st.switch_page("pages/6_Ticket_Details.py")
 else:
     st.info("No tickets to display.")

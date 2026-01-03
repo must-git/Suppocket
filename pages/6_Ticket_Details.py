@@ -1,5 +1,5 @@
 import streamlit as st
-from db.database import get_ticket_by_id, get_user, update_ticket, get_all_customers
+from db.database import get_ticket_by_id, get_user, update_ticket, get_all_agents
 from datetime import datetime
 
 st.set_page_config(
@@ -58,19 +58,35 @@ if st.session_state['user']['role'] in ['agent', 'admin']:
     with st.form("update_ticket_form"):
         new_status = st.selectbox("Update Status", ['Open', 'In Progress', 'Resolved', 'Closed'], index=['Open', 'In Progress', 'Resolved', 'Closed'].index(ticket['status']))
         
-        agents = [u for u in get_all_customers() if u['role'] in ['agent', 'admin']] # Get all potential agents
-        agent_options = {u['username']: u['id'] for u in agents}
-        
-        current_assigned_username = get_user(user_id=ticket['agent_id'])['username'] if ticket['agent_id'] else "Unassigned"
-        
-        selected_agent_username = st.selectbox("Assign To", ["Unassigned"] + list(agent_options.keys()), index=(["Unassigned"] + list(agent_options.keys())).index(current_assigned_username))
-        new_assigned_to = agent_options.get(selected_agent_username) # Will be None if "Unassigned" is selected
+        if st.session_state['user']['role'] == 'admin':
+            agents = get_all_agents()
+            agent_options = {agent['username']: agent['id'] for agent in agents}
+            
+            current_assigned_agent = get_user(user_id=ticket['agent_id'])
+            current_assigned_username = current_assigned_agent['username'] if current_assigned_agent else "Unassigned"
+
+            # Create a list of usernames for the selectbox
+            agent_usernames = ["Unassigned"] + list(agent_options.keys())
+            
+            # Find the index of the currently assigned agent
+            try:
+                current_agent_index = agent_usernames.index(current_assigned_username)
+            except ValueError:
+                current_agent_index = 0 # Default to "Unassigned" if agent not in list
+
+            selected_agent_username = st.selectbox("Assign To", agent_usernames, index=current_agent_index)
+            new_assigned_to = agent_options.get(selected_agent_username)
+        else:
+            # For agents, don't show the assignment dropdown, just keep the value
+            new_assigned_to = ticket['agent_id']
 
         update_submitted = st.form_submit_button("Update Ticket")
 
         if update_submitted:
-            if update_ticket(ticket['id'], status=new_status, agent_id=new_assigned_to):
+            if update_ticket(ticket_id=ticket['id'], status=new_status, agent_id=new_assigned_to):
                 st.success("Ticket updated successfully!")
+                # Re-fetch ticket data to show updated info
+                ticket = get_ticket_by_id(ticket_id) 
                 st.rerun()
             else:
                 st.error("Failed to update ticket. Please try again.")
