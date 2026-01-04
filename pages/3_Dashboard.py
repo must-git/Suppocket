@@ -2,12 +2,14 @@ import streamlit as st
 import pandas as pd
 from db.database import get_tickets
 from auth_utils import render_sidebar
+from utils.theme import apply_theme
 
 st.set_page_config(
     page_title="Dashboard",
     page_icon="🎫",
     layout="wide"
 )
+apply_theme()
 
 render_sidebar()
 

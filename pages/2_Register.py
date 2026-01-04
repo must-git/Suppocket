@@ -1,12 +1,13 @@
 import streamlit as st
 from db.database import create_user, get_user
 from auth_utils import render_sidebar
-import hashlib
+from utils.theme import apply_theme
 
 st.set_page_config(
     page_title="Register",
     page_icon="✍️"
 )
+apply_theme()
 
 render_sidebar()
 
@@ -32,14 +33,10 @@ with st.form("register_form"):
         elif get_user(email=email) or get_user(username=username):
             st.error("An account with this email or username already exists.")
         else:
-            # In a real application, use a strong hashing library like bcrypt
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
-            
-            user_id = create_user(username, email, password_hash, role='customer')
+            user_id = create_user(username, email, password, role='customer')
             
             if user_id:
                 st.success(f"Account created for {username}! Please log in.")
                 st.page_link("pages/1_Login.py", label="Go to Login Page", icon="🔑")
             else:
                 st.error("An error occurred during registration. Please try again.")
-

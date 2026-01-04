@@ -1,12 +1,16 @@
 import streamlit as st
 from db.database import get_ticket_by_id, get_user, update_ticket, get_all_agents
 from datetime import datetime
+from auth_utils import render_sidebar
+from utils.theme import apply_theme
 
 st.set_page_config(
     page_title="Ticket Details",
     page_icon="🎫",
     layout="wide"
 )
+apply_theme()
+render_sidebar()
 
 st.title("Ticket Details")
 
@@ -18,15 +22,15 @@ if not st.session_state.get('authenticated'):
 ticket_id = st.session_state.get('selected_ticket_id')
 
 if not ticket_id:
-    st.error("No ticket selected. Please go to the Dashboard to select a ticket.")
-    st.page_link("pages/3_Dashboard.py", label="Go to Dashboard", icon="📊")
+    st.error("No ticket selected. Please go to the Tickets list to select a ticket.")
+    st.page_link("pages/4_Tickets.py", label="Go to Tickets list", icon="📋")
     st.stop()
 
 ticket = get_ticket_by_id(ticket_id)
 
 if not ticket:
     st.error(f"Ticket with ID '{ticket_id}' not found.")
-    st.page_link("pages/3_Dashboard.py", label="Go to Dashboard", icon="📊")
+    st.page_link("pages/4_Tickets.py", label="Go to Tickets list", icon="📋")
     st.stop()
 
 st.subheader(f"Ticket #{ticket['id']} - {ticket['title']}")

@@ -33,106 +33,131 @@ def _execute_query(query: str, params: tuple = ()) -> pd.DataFrame:
         print(f"An error occurred: {e}")
         return pd.DataFrame()
 
-def calculate_average_resolution_time(start_date: str, end_date: str) -> float:
+def calculate_average_resolution_time(df: pd.DataFrame = None, start_date: str = None, end_date: str = None) -> float:
     """
-    Calculates the average resolution time for tickets resolved within a date range.
-
-    Args:
-        start_date (str): The start date of the range (YYYY-MM-DD).
-        end_date (str): The end date of the range (YYYY-MM-DD).
-
-    Returns:
-        float: The average resolution time in hours, or 0.0 if no tickets are found.
+    Calculates the average resolution time for tickets.
+    If a DataFrame is provided, it calculates the metric based on it.
+    Otherwise, it fetches data within the given date range.
     """
-    query = """
-        SELECT created_at, resolved_at
-        FROM tickets
-        WHERE status IN ('Resolved', 'Closed')
-          AND resolved_at IS NOT NULL
-          AND resolved_at BETWEEN ? AND ?
-    """
-    df = _execute_query(query, (start_date, end_date))
+    if df is None:
+        if not start_date or not end_date:
+            return 0.0
+        query = """
+            SELECT created_at, resolved_at
+            FROM tickets
+            WHERE status IN ('Resolved', 'Closed')
+              AND resolved_at IS NOT NULL
+              AND resolved_at BETWEEN ? AND ?
+        """
+        df = _execute_query(query, (start_date, end_date))
 
     if df.empty or 'resolved_at' not in df.columns or 'created_at' not in df.columns:
         return 0.0
 
-    df['resolution_time'] = (df['resolved_at'] - df['created_at']).dt.total_seconds() / 3600  # in hours
-    return df['resolution_time'].mean()
+    # Ensure columns are datetime objects
+    df['resolved_at'] = pd.to_datetime(df['resolved_at'])
+    df['created_at'] = pd.to_datetime(df['created_at'])
 
-def get_ticket_counts_by_category(start_date: str, end_date: str) -> pd.DataFrame:
+    resolved_df = df[df['status'].isin(['Resolved', 'Closed']) & df['resolved_at'].notna()]
+    if resolved_df.empty:
+        return 0.0
+
+    resolution_time = (resolved_df['resolved_at'] - resolved_df['created_at']).dt.total_seconds() / 3600  # in hours
+    return resolution_time.mean()
+
+def get_ticket_counts_by_category(df: pd.DataFrame = None, start_date: str = None, end_date: str = None) -> pd.DataFrame:
     """
-    Gets the count of tickets for each category within a given date range.
-
-    Args:
-        start_date (str): The start date of the range (YYYY-MM-DD).
-        end_date (str): The end date of the range (YYYY-MM-DD).
-
-    Returns:
-        pd.DataFrame: DataFrame with 'category' and 'count' columns.
+    Gets the count of tickets for each category.
+    If a DataFrame is provided, it calculates the metric based on it.
     """
-    query = """
-        SELECT category, COUNT(id) as count
-        FROM tickets
-        WHERE created_at BETWEEN ? AND ?
-        GROUP BY category
-        ORDER BY count DESC
-    """
-    return _execute_query(query, (start_date, end_date))
+    if df is None:
+        if not start_date or not end_date:
+            return pd.DataFrame()
+        query = """
+            SELECT category, COUNT(id) as count
+            FROM tickets
+            WHERE created_at BETWEEN ? AND ?
+            GROUP BY category
+            ORDER BY count DESC
+        """
+        df = _execute_query(query, (start_date, end_date))
 
-def get_ticket_counts_by_priority(start_date: str, end_date: str) -> pd.DataFrame:
-    """
-    Gets the count of tickets for each priority level within a given date range.
+    if df.empty:
+        return pd.DataFrame()
 
-    Args:
-        start_date (str): The start date of the range (YYYY-MM-DD).
-        end_date (str): The end date of the range (YYYY-MM-DD).
+    return df['category'].value_counts().reset_index()
 
-    Returns:
-        pd.DataFrame: DataFrame with 'priority' and 'count' columns.
+def get_ticket_counts_by_priority(df: pd.DataFrame = None, start_date: str = None, end_date: str = None) -> pd.DataFrame:
     """
-    query = """
-        SELECT priority, COUNT(id) as count
-        FROM tickets
-        WHERE created_at BETWEEN ? AND ?
-        GROUP BY priority
-        ORDER BY
-            CASE priority
-                WHEN 'Critical' THEN 1
-                WHEN 'High' THEN 2
-                WHEN 'Medium' THEN 3
-                WHEN 'Low' THEN 4
-                ELSE 5
-            END
+    Gets the count of tickets for each priority level.
+    If a DataFrame is provided, it calculates the metric based on it.
     """
-    return _execute_query(query, (start_date, end_date))
+    if df is None:
+        if not start_date or not end_date:
+            return pd.DataFrame()
+        query = """
+            SELECT priority, COUNT(id) as count
+            FROM tickets
+            WHERE created_at BETWEEN ? AND ?
+            GROUP BY priority
+            ORDER BY
+                CASE priority
+                    WHEN 'Critical' THEN 1
+                    WHEN 'High' THEN 2
+                    WHEN 'Medium' THEN 3
+                    WHEN 'Low' THEN 4
+                    ELSE 5
+                END
+        """
+        df = _execute_query(query, (start_date, end_date))
+    
+    if df.empty:
+        return pd.DataFrame()
 
-def get_ticket_trends(start_date: str, end_date: str, grouping: str = 'daily') -> pd.DataFrame:
-    """
-    Gets ticket creation trends over time, grouped by day, week, or month.
+    return df['priority'].value_counts().reset_index()
 
-    Args:
-        start_date (str): The start date of the range (YYYY-MM-DD).
-        end_date (str): The end date of the range (YYYY-MM-DD).
-        grouping (str): The time grouping ('daily', 'weekly', 'monthly').
-
-    Returns:
-        pd.DataFrame: DataFrame with 'date' and 'count' columns.
+def get_ticket_trends(df: pd.DataFrame = None, start_date: str = None, end_date: str = None, grouping: str = 'daily') -> pd.DataFrame:
     """
-    group_formats = {
-        'daily': '%Y-%m-%d',
-        'weekly': '%Y-%W',
-        'monthly': '%Y-%m'
-    }
-    date_format = group_formats.get(grouping, '%Y-%m-%d')
-
-    query = f"""
-        SELECT STRFTIME('{date_format}', created_at) as date, COUNT(id) as count
-        FROM tickets
-        WHERE created_at BETWEEN ? AND ?
-        GROUP BY date
-        ORDER BY date ASC
+    Gets ticket creation trends over time.
+    If a DataFrame is provided, it calculates the trend based on it.
     """
-    return _execute_query(query, (start_date, end_date))
+    if df is None:
+        if not start_date or not end_date:
+            return pd.DataFrame()
+        group_formats = {
+            'daily': '%Y-%m-%d',
+            'weekly': '%Y-%W',
+            'monthly': '%Y-%m'
+        }
+        date_format = group_formats.get(grouping, '%Y-%m-%d')
+        query = f"""
+            SELECT STRFTIME('{date_format}', created_at) as date, COUNT(id) as count
+            FROM tickets
+            WHERE created_at BETWEEN ? AND ?
+            GROUP BY date
+            ORDER BY date ASC
+        """
+        df = _execute_query(query, (start_date, end_date))
+        return df
+
+    if df.empty:
+        return pd.DataFrame()
+        
+    df['created_at'] = pd.to_datetime(df['created_at'])
+    
+    # Resample based on the grouping
+    if grouping == 'daily':
+        resampler = 'D'
+    elif grouping == 'weekly':
+        resampler = 'W'
+    elif grouping == 'monthly':
+        resampler = 'M'
+    else:
+        resampler = 'D'
+        
+    trends = df.set_index('created_at').resample(resampler).size().reset_index(name='count')
+    trends = trends.rename(columns={'created_at': 'date'})
+    return trends
 
 def get_created_vs_resolved_trends(start_date: str, end_date: str, grouping: str = 'daily') -> pd.DataFrame:
     """
@@ -289,3 +314,53 @@ def get_resolution_time_by_priority(start_date: str, end_date: str) -> pd.DataFr
 
     df['avg_resolution_hours'] = df['resolution_days'] * 24
     return df.groupby('priority')['avg_resolution_hours'].mean().reset_index().sort_values('avg_resolution_hours', ascending=False)
+
+def get_tickets_for_analytics(start_date: str, end_date: str, user_role: str = None, user_id: int = None) -> pd.DataFrame:
+    """
+    Fetches tickets within a date range, with filtering based on user role.
+
+    Args:
+        start_date (str): The start date of the range (YYYY-MM-DD).
+        end_date (str): The end date of the range (YYYY-MM-DD).
+        user_role (str, optional): The role of the user ('admin', 'agent', 'customer').
+        user_id (int, optional): The ID of the user.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the filtered tickets.
+    """
+    base_query = "SELECT * FROM tickets WHERE created_at BETWEEN ? AND ?"
+    params = [start_date, end_date]
+
+    if user_role == 'customer' and user_id:
+        base_query += " AND customer_id = ?"
+        params.append(user_id)
+    elif user_role == 'agent' and user_id:
+        base_query += " AND agent_id = ?"
+        params.append(user_id)
+    
+    return _execute_query(base_query, tuple(params))
+
+def get_status_breakdown_per_category(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates the count of tickets per status for each category.
+    """
+    if df.empty:
+        return pd.DataFrame()
+
+    return df.groupby(['category', 'status']).size().reset_index(name='count')
+
+def get_open_ticket_age_distribution(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates the age of open tickets.
+    """
+    if df.empty:
+        return pd.DataFrame()
+        
+    open_tickets = df[df['status'].isin(['Open', 'In Progress'])].copy()
+    if open_tickets.empty:
+        return pd.DataFrame()
+        
+    open_tickets['created_at'] = pd.to_datetime(open_tickets['created_at'])
+    open_tickets['age_days'] = (datetime.now() - open_tickets['created_at']).dt.days
+    return open_tickets[['age_days']]
+

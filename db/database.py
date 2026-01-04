@@ -1,5 +1,6 @@
 import sqlite3
 import datetime
+import hashlib
 
 DATABASE_NAME = "suppocket.db"
 
@@ -53,49 +54,62 @@ def initialize_database():
 
 # --- User CRUD Functions ---
 
-def create_user(username, email, password_hash, role='customer'):
+def create_user(username, email, password, role='customer', conn=None):
     """Creates a new user in the database."""
-    try:
+    
+    close_conn = False
+    if conn is None:
         conn = get_db_connection()
+        close_conn = True
+
+    try:
         cursor = conn.cursor()
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
         cursor.execute(
             "INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)",
             (username, email, password_hash, role)
         )
         user_id = cursor.lastrowid
         conn.commit()
-        conn.close()
         return user_id
     except sqlite3.IntegrityError:
-        # This error occurs if the username or email is not unique
         return None
     except sqlite3.Error as e:
         print(f"Database error: {e}")
         return None
+    finally:
+        if close_conn and conn:
+            conn.close()
 
-def get_user(user_id=None, email=None, username=None):
+def get_user(user_id=None, email=None, username=None, conn=None):
     """
     Retrieves a user by their ID, email address, or username.
     Returns a dictionary representing the user, or None if not found.
     """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    if user_id:
-        cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-    elif email:
-        cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-    elif username:
-        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
-    else:
-        conn.close()
-        return None
+    close_conn = False
+    if conn is None:
+        conn = get_db_connection()
+        close_conn = True
         
-    user_row = cursor.fetchone()
-    conn.close()
-    
-    if user_row:
-        return dict(user_row)
-    return None
+    try:
+        cursor = conn.cursor()
+        if user_id:
+            cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        elif email:
+            cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+        elif username:
+            cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        else:
+            return None
+            
+        user_row = cursor.fetchone()
+        
+        if user_row:
+            return dict(user_row)
+        return None
+    finally:
+        if close_conn and conn:
+            conn.close()
 
 def update_user(user_id, new_username, new_email):
     """
@@ -121,6 +135,28 @@ def update_user(user_id, new_username, new_email):
         if conn:
             conn.close()
 
+def update_password_hash(user_id, new_password):
+    """
+    Updates a user's password hash in the database.
+    Returns True on success, False otherwise.
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        new_password_hash = hashlib.sha256(new_password.encode()).hexdigest()
+        cursor.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (new_password_hash, user_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except sqlite3.Error as e:
+        print(f"Database error during password update: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
 def get_all_customers():
     """
     Retrieves all users with the role 'customer'.
@@ -133,24 +169,35 @@ def get_all_customers():
     conn.close()
     return [dict(row) for row in customer_rows]
 
-def get_all_agents():
+def get_all_agents(conn=None):
     """
     Retrieves all users with the role 'agent'.
     Returns a list of dictionaries, each representing an agent.
     """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username, email FROM users WHERE role = 'agent'")
-    agent_rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in agent_rows]
+    close_conn = False
+    if conn is None:
+        conn = get_db_connection()
+        close_conn = True
+        
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username, email FROM users WHERE role = 'agent'")
+        agent_rows = cursor.fetchall()
+        return [dict(row) for row in agent_rows]
+    finally:
+        if close_conn and conn:
+            conn.close()
 
 # --- Ticket CRUD Functions ---
 
-def create_ticket(title, description, customer_id, category, priority):
+def create_ticket(title, description, customer_id, category, priority, conn=None):
     """Creates a new support ticket."""
-    try:
+    close_conn = False
+    if conn is None:
         conn = get_db_connection()
+        close_conn = True
+
+    try:
         cursor = conn.cursor()
         now = datetime.datetime.now()
         cursor.execute(
@@ -162,11 +209,13 @@ def create_ticket(title, description, customer_id, category, priority):
         )
         ticket_id = cursor.lastrowid
         conn.commit()
-        conn.close()
         return ticket_id
     except sqlite3.Error as e:
         print(f"Database error: {e}")
         return None
+    finally:
+        if close_conn and conn:
+            conn.close()
 
 def get_ticket_by_id(ticket_id):
     """

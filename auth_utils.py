@@ -1,8 +1,14 @@
 import streamlit as st
+import hashlib
+from utils.theme import apply_theme
+
+def verify_password(plain_password, hashed_password):
+    return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password 
 
 def render_sidebar():
     """Renders the sidebar with navigation links based on authentication status."""
     st.sidebar.title("Navigation")
+    # apply_theme()
 
     # Ensure session state keys exist
     if 'authenticated' not in st.session_state:
@@ -15,9 +21,9 @@ def render_sidebar():
         
         st.sidebar.page_link("app.py", label="Home", icon="🏠")
         st.sidebar.page_link("pages/3_Dashboard.py", label="Dashboard", icon="📊")
-        st.sidebar.page_link("pages/7_Tickets.py", label="Tickets", icon="🎫")
-        st.sidebar.page_link("pages/4_Create_Ticket.py", label="Create Ticket", icon="📝")
-        st.sidebar.page_link("pages/6_Profile.py", label="Profile", icon="👤")
+        st.sidebar.page_link("pages/4_Tickets.py", label="Tickets", icon="🎫")
+        st.sidebar.page_link("pages/5_Create_Ticket.py", label="Create Ticket", icon="📝")
+        st.sidebar.page_link("pages/8_Profile.py", label="Profile", icon="👤")
         
         if st.sidebar.button("Logout"):
             st.session_state['authenticated'] = False

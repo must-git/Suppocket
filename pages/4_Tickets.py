@@ -1,12 +1,14 @@
 import streamlit as st
 from db.database import get_tickets, get_user, update_ticket
 from auth_utils import render_sidebar
+from utils.theme import apply_theme
 
 st.set_page_config(
     page_title="All Tickets",
     page_icon="🎫",
     layout="wide"
 )
+apply_theme()
 
 render_sidebar()
 

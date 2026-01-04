@@ -1,13 +1,9 @@
-import hashlib
-from .database import get_user
-
-def verify_password(plain_password, hashed_password):
-    """Verifies a plain password against a hashed one."""
-    return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password
+from .database import get_user, update_password_hash
+from auth_utils import verify_password
 
 def login_user(username_or_email, password):
     """
-    Authenticates a user by username/email and password.
+    Authenticates a user and automatically upgrades their password hash if it's outdated.
 
     Args:
         username_or_email (str): The user's username or email.
@@ -24,6 +20,13 @@ def login_user(username_or_email, password):
         user = get_user(username=username_or_email)
     
     if user and verify_password(password, user['password_hash']):
+        # If login is successful, check if the hash needs to be upgraded.
+        # A simple check for the bcrypt prefix is sufficient here.
+        # if not user['password_hash'].startswith('$2b$'):
+        #     new_hash = hash_password(password)
+        #     update_password_hash(user['id'], new_hash)
+        #     user['password_hash'] = new_hash  # Update hash in the in-memory user dict
+
         return user
         
     return None

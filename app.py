@@ -1,13 +1,15 @@
 import streamlit as st
 from auth_utils import render_sidebar
+from utils.theme import apply_theme
 
-# --- Page Configuration ---
+# --- Page Configuration and Theme ---
 st.set_page_config(
     page_title="Suppocket - Your Pocket Support Solution",
     page_icon="🎟️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+apply_theme()
 
 # --- Sidebar ---
 render_sidebar()
