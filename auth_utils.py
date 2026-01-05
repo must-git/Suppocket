@@ -23,8 +23,8 @@ def render_sidebar():
         st.sidebar.page_link("pages/5_Create_Ticket.py", label="Create Ticket", icon="📝")
         st.sidebar.page_link("pages/8_Profile.py", label="Profile", icon="👤")
         if st.session_state.get('user')['role'] == 'admin':
-            # st.sidebar.page_link("pages/Admin.py", label="Admin Panel", icon="🛠️")
-            st.sidebar.page_link("pages/Reports.py", label="Reports", icon="📈")
+            st.sidebar.page_link("pages/_Admin.py", label="Admin Panel", icon="🛠️")
+            st.sidebar.page_link("pages/_Reports.py", label="Reports", icon="📈")
         
         if st.sidebar.button("Logout"):
             st.session_state['authenticated'] = False

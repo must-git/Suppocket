@@ -1,5 +1,5 @@
 import streamlit as st
-from db.database import get_ticket_by_id, get_user, update_ticket, get_all_agents
+from db.database import get_ticket_by_id, get_user, update_ticket, get_all_agents, get_priorities
 from datetime import datetime
 from auth_utils import render_sidebar
 
@@ -60,10 +60,12 @@ if st.session_state['user']['role'] in ['agent', 'admin']:
 
     with st.form("update_ticket_form"):
         new_status = st.selectbox("Update Status", ['Open', 'In Progress', 'Resolved', 'Closed'], index=['Open', 'In Progress', 'Resolved', 'Closed'].index(ticket['status']))
+        priority = st.selectbox("Priority", [priorities_df['name'] for _, priorities_df in get_priorities().iterrows()])
         
         if st.session_state['user']['role'] == 'admin':
             agents = get_all_agents()
-            agent_options = {agent['username']: agent['id'] for agent in agents}
+            # Correctly iterate over DataFrame rows to create options
+            agent_options = {row['username']: row['id'] for index, row in agents.iterrows()}
             
             current_assigned_agent = get_user(user_id=ticket['agent_id'])
             current_assigned_username = current_assigned_agent['username'] if current_assigned_agent else "Unassigned"
@@ -86,10 +88,9 @@ if st.session_state['user']['role'] in ['agent', 'admin']:
         update_submitted = st.form_submit_button("Update Ticket")
 
         if update_submitted:
-            if update_ticket(ticket_id=ticket['id'], status=new_status, agent_id=new_assigned_to):
+            if update_ticket(ticket_id=ticket['id'], user_id_for_log=st.session_state['user']['id'], status=new_status, agent_id=new_assigned_to, priority=priority):
                 st.success("Ticket updated successfully!")
                 # Re-fetch ticket data to show updated info
                 ticket = get_ticket_by_id(ticket_id) 
-                st.rerun()
             else:
                 st.error("Failed to update ticket. Please try again.")
