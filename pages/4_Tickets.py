@@ -1,14 +1,12 @@
 import streamlit as st
-from db.database import get_tickets, get_user, update_ticket
+from db.database import get_tickets, get_user, update_ticket, delete_ticket
 from auth_utils import render_sidebar
-from utils.theme import apply_theme
 
 st.set_page_config(
     page_title="All Tickets",
     page_icon="🎫",
     layout="wide"
 )
-apply_theme()
 
 render_sidebar()
 
@@ -34,23 +32,23 @@ st.markdown("---")
 
 if all_tickets:
     # Display headers
-    col1_h, col2_h, col3_h, col4_h, col5_h, col6_h = st.columns([1, 2, 3, 1, 1, 1])
+    col1_h, col2_h, col3_h, col4_h, col5_h, col6_h = st.columns([1, 2, 3, 1, 1, 2])
     with col1_h:
-        st.subheader("ID")
+        st.markdown("##### ID")
     with col2_h:
-        st.subheader("Customer")
+        st.markdown("##### Customer")
     with col3_h:
-        st.subheader("Title")
+        st.markdown("##### Title")
     with col4_h:
-        st.subheader("Priority")
+        st.markdown("##### Priority")
     with col5_h:
-        st.subheader("Status")
+        st.markdown("##### Status")
     with col6_h:
-        st.subheader("Action")
+        st.markdown("##### Action")
     st.markdown("---")
 
     for ticket in all_tickets:
-        col1, col2, col3, col4, col5, col6 = st.columns([1, 2, 3, 1, 1, 1])
+        col1, col2, col3, col4, col5, col6 = st.columns([1, 2, 3, 1, 1, 2])
         
         customer_info = get_user(user_id=ticket['customer_id'])
         customer_name = customer_info['username'] if customer_info else "Unknown"
@@ -71,8 +69,15 @@ if all_tickets:
                 if st.button("Take On", key=f"take_on_{ticket['id']}"):
                     update_ticket(ticket_id=ticket['id'], agent_id=current_user['id'])
                     st.rerun()
-            elif st.button("View", key=f"view_{ticket['id']}"):
-                st.session_state['selected_ticket_id'] = ticket['id']
-                st.switch_page("pages/6_Ticket_Details.py")
+            else:
+                col_view, col_delete = st.columns(2)
+                with col_view:
+                    if st.button("View", key=f"view_{ticket['id']}"):
+                        st.session_state['selected_ticket_id'] = ticket['id']
+                        st.switch_page("pages/6_Ticket_Details.py")
+                with col_delete:
+                    if st.button("Delete", key=f"delete_{ticket['id']}"):
+                        delete_ticket(ticket_id=ticket['id'])
+                        st.rerun()
 else:
     st.info("No tickets to display.")

@@ -2,14 +2,12 @@ import streamlit as st
 from db.database import get_ticket_by_id, get_user, update_ticket, get_all_agents
 from datetime import datetime
 from auth_utils import render_sidebar
-from utils.theme import apply_theme
 
 st.set_page_config(
     page_title="Ticket Details",
     page_icon="🎫",
     layout="wide"
 )
-apply_theme()
 render_sidebar()
 
 st.title("Ticket Details")
@@ -39,7 +37,8 @@ col1, col2, col3 = st.columns(3)
 with col1:
     customer_info = get_user(user_id=ticket['customer_id'])
     st.markdown(f"**Customer:** {customer_info['username'] if customer_info else 'Unknown'}")
-    st.markdown(f"**Status:** {ticket['status']}")
+    if st.markdown(f"**Status:** {ticket['status']}") and ticket['status'] in ['Resolved', 'Closed']:
+        st.markdown(f"**Resolved At:** {ticket['resolved_at']}")
     st.markdown(f"**Priority:** {ticket['priority']}")
 with col2:
     st.markdown(f"**Category:** {ticket['category']}")

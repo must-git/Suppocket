@@ -42,7 +42,6 @@ with st.form("profile_form"):
                 if updated_user_from_db:
                     st.session_state['user'] = updated_user_from_db
                     st.success("Your profile has been updated successfully!")
-                    st.rerun()
                 else:
                     st.error("Failed to retrieve updated user data.")
             else:

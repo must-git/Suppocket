@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python/
+env/
+venv/
+lib/
+lib64/
+include/
+bin/
+share/
+*.egg
+*.egg-info/
+.env
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDEs
+.vscode/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Database
+*.db
+!suppocket.db # Keep the actual database file, but ignore temporary ones like wal, shm
+
+# Streamlit
+.streamlit/

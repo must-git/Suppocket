@@ -1,13 +1,11 @@
 import streamlit as st
 from db.auth import login_user
 from auth_utils import render_sidebar
-from utils.theme import apply_theme
 
 st.set_page_config(
     page_title="Login",
     page_icon="🔑"
 )
-apply_theme()
 
 render_sidebar()
 
