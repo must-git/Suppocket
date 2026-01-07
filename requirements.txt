@@ -3,3 +3,5 @@ pandas
 plotly
 altair
 passlib[bcrypt]
+pytz
+python-dotenv

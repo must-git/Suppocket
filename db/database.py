@@ -2,6 +2,7 @@ import sqlite3
 import datetime
 import hashlib
 import pandas as pd
+import pytz
 
 DATABASE_NAME = "suppocket.db"
 
@@ -11,136 +12,6 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;") # Enforce foreign keys
     return conn
-
-def initialize_database():
-    """
-    Initializes and upgrades the database schema idempotently.
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # --- Create Users Table (with status if not exists) ---
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            role TEXT NOT NULL CHECK(role IN ('admin', 'agent', 'customer')),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    """)
-    # Add status column to users if it doesn't exist
-    cursor.execute("PRAGMA table_info(users)")
-    if 'status' not in [col[1] for col in cursor.fetchall()]:
-        cursor.execute("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active' NOT NULL CHECK(status IN ('active', 'inactive'))")
-
-    # --- Create Categories Table ---
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            description TEXT,
-            color TEXT,
-            archived INTEGER NOT NULL DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    """)
-    # Seed default categories
-    default_categories = [
-        ('Technical', 'Issues related to technical problems.', '#3B82F6'),
-        ('Billing', 'Billing and payment questions.', '#F59E0B'),
-        ('General Inquiry', 'General questions about products or services.', '#10B981'),
-        ('Bug Report', 'Reporting software bugs.', '#EF4444'),
-        ('Feature Request', 'Requesting new features.', '#A855F7')
-    ]
-    cursor.execute("SELECT COUNT(*) FROM categories")
-    if cursor.fetchone()[0] == 0:
-        cursor.executemany("INSERT INTO categories (name, description, color) VALUES (?, ?, ?)", default_categories)
-
-    # --- Create Priorities Table ---
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS priorities (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            description TEXT,
-            color TEXT,
-            sort_order INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    """)
-    # Seed default priorities
-    default_priorities = [
-        ('Low', 'Non-critical issues.', '#22C55E', 1),
-        ('Medium', 'Standard issues.', '#F59E0B', 2),
-        ('High', 'Urgent issues.', '#F97316', 3),
-        ('Critical', 'System-down or critical impact issues.', '#EF4444', 4)
-    ]
-    cursor.execute("SELECT COUNT(*) FROM priorities")
-    if cursor.fetchone()[0] == 0:
-        cursor.executemany("INSERT INTO priorities (name, description, color, sort_order) VALUES (?, ?, ?, ?)", default_priorities)
-
-    # --- Create Tickets Table ---
-    # NOTE: Existing schema. No changes needed for now to maintain compatibility.
-    # Future state: category and priority columns should be foreign keys.
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tickets (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            description TEXT NOT NULL,
-            category TEXT,
-            priority TEXT CHECK(priority IN ('Low', 'Medium', 'High', 'Critical')),
-            status TEXT CHECK(status IN ('Open', 'In Progress', 'Resolved', 'Closed')),
-            customer_id INTEGER NOT NULL,
-            agent_id INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP,
-            resolved_at TIMESTAMP,
-            FOREIGN KEY (customer_id) REFERENCES users (id),
-            FOREIGN KEY (agent_id) REFERENCES users (id)
-        );
-    """)
-
-    # --- Create SLA Settings Table ---
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sla_settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            priority_id INTEGER NOT NULL UNIQUE,
-            response_time_hours INTEGER NOT NULL,
-            resolution_time_hours INTEGER NOT NULL,
-            updated_at TIMESTAMP,
-            FOREIGN KEY (priority_id) REFERENCES priorities (id)
-        );
-    """)
-
-    # --- Create System Settings Table ---
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS system_settings (
-            setting_key TEXT PRIMARY KEY,
-            setting_value TEXT,
-            updated_at TIMESTAMP,
-            updated_by INTEGER,
-            FOREIGN KEY (updated_by) REFERENCES users (id)
-        );
-    """)
-
-    # --- Create Activity Logs Table ---
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS activity_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            action_type TEXT NOT NULL,
-            resource_type TEXT,
-            resource_id INTEGER,
-            details TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        );
-    """)
-
-    conn.commit()
-    conn.close()
-    print("Database initialized/updated successfully.")
 
 # --- User CRUD Functions (including Admin) ---
 
@@ -380,6 +251,15 @@ def create_ticket(title, description, customer_id, category_name, priority_name,
         ticket_id = cursor.lastrowid
         conn.commit()
         log_activity(customer_id, "ticket_created", "tickets", ticket_id, f"Ticket '{title}' created with category '{category_name}' and priority '{priority_name}'.")
+        
+        # --- Send Email Notification ---
+        try:
+            from email_utils import send_ticket_created_notification
+            send_ticket_created_notification(ticket_id)
+        except Exception as e:
+            print(f"Failed to send ticket creation email for ticket {ticket_id}: {e}")
+        # --- End Email ---
+
         return ticket_id
     except sqlite3.Error as e:
         print(f"Database error in create_ticket: {e}")
@@ -396,9 +276,11 @@ def get_tickets(customer_id=None, agent_id=None, include_unassigned=False, filte
     - include_unassigned: for agents, also includes unassigned tickets.
     - filters: dictionary for additional filtering, e.g., {'status': 'Open'}.
     - order_by: string for ordering, e.g., 'created_at DESC'.
+    - For agents/admins, includes SLA information.
     Returns a list of dictionaries.
     """
     conn = get_db_connection()
+    is_customer = customer_id is not None
     try:
         query = """
             SELECT
@@ -412,12 +294,23 @@ def get_tickets(customer_id=None, agent_id=None, include_unassigned=False, filte
                 p_obj.description as priority_description,
                 p_obj.color as priority_color,
                 p_obj.sort_order as priority_sort_order
+        """
+        if not is_customer:
+            query += """,
+                sla.response_time_hours,
+                sla.resolution_time_hours
+            """
+
+        query += """
             FROM tickets t
             JOIN users c ON t.customer_id = c.id
             LEFT JOIN users a ON t.agent_id = a.id
             LEFT JOIN categories c_obj ON t.category = c_obj.name
             LEFT JOIN priorities p_obj ON t.priority = p_obj.name
         """
+        if not is_customer:
+            query += " LEFT JOIN sla_settings sla ON p_obj.id = sla.priority_id"
+
         params = []
         conditions = []
 
@@ -446,7 +339,6 @@ def get_tickets(customer_id=None, agent_id=None, include_unassigned=False, filte
 
         # Apply sorting
         if order_by:
-            # Whitelist order_by columns to prevent SQL injection
             allowed_order_by = {
                 'created_at DESC': 't.created_at DESC',
                 'created_at ASC': 't.created_at ASC',
@@ -456,13 +348,29 @@ def get_tickets(customer_id=None, agent_id=None, include_unassigned=False, filte
             if order_by in allowed_order_by:
                  query += f" ORDER BY {allowed_order_by[order_by]}"
             else:
-                query += " ORDER BY t.updated_at DESC" # Default order if invalid
+                query += " ORDER BY t.updated_at DESC"
         else:
-            query += " ORDER BY t.updated_at DESC" # Default order if not provided
+            query += " ORDER BY t.updated_at DESC"
 
         cursor = conn.cursor()
         cursor.execute(query, tuple(params))
         tickets = [dict(row) for row in cursor.fetchall()]
+
+        if not is_customer:
+            from sla_utils import get_business_hours_settings, calculate_sla_due_date, check_resolution_sla_status, check_response_sla_status
+            sla_settings = get_business_hours_settings()
+            for ticket in tickets:
+                created_at_utc = datetime.datetime.fromisoformat(ticket['created_at']).replace(tzinfo=pytz.utc)
+
+                # Resolution SLA
+                resolution_due = calculate_sla_due_date(created_at_utc, ticket.get('resolution_time_hours'), sla_settings)
+                ticket['resolution_due'] = resolution_due.isoformat() if resolution_due else None
+                ticket['resolution_status'] = check_resolution_sla_status(ticket, resolution_due)
+
+                # Response SLA
+                response_due = calculate_sla_due_date(created_at_utc, ticket.get('response_time_hours'), sla_settings)
+                ticket['response_due'] = response_due.isoformat() if response_due else None
+                ticket['response_status'] = check_response_sla_status(ticket, response_due)
         return tickets
     finally:
         conn.close()
@@ -476,6 +384,12 @@ def update_ticket(ticket_id, user_id_for_log=None, **kwargs):
     """
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # Get old agent_id and status for email notification logic
+    cursor.execute("SELECT agent_id, status FROM tickets WHERE id = ?", (ticket_id,))
+    row = cursor.fetchone()
+    old_agent_id = row['agent_id'] if row else None
+    old_status = row['status'] if row else None
 
     allowed_fields = ['status', 'agent_id', 'category', 'priority']
     updates = []
@@ -527,6 +441,25 @@ def update_ticket(ticket_id, user_id_for_log=None, **kwargs):
         conn.commit()
         if cursor.rowcount > 0:
             log_activity(user_id_for_log, "ticket_updated", "tickets", ticket_id, f"Updated ticket: {', '.join(details_for_log)}.")
+            
+            # --- Send Email Notification on Assignment ---
+            if 'agent_id' in kwargs and kwargs['agent_id'] is not None and kwargs['agent_id'] != old_agent_id:
+                try:
+                    from email_utils import send_ticket_assigned_notification
+                    send_ticket_assigned_notification(ticket_id)
+                except Exception as e:
+                    print(f"Failed to send ticket assignment email for ticket {ticket_id}: {e}")
+            # --- End Email ---
+
+            # --- Send Email Notification on Resolution ---
+            if 'status' in kwargs and kwargs['status'] == 'Resolved' and old_status != 'Resolved':
+                try:
+                    from email_utils import send_ticket_resolved_notification
+                    send_ticket_resolved_notification(ticket_id)
+                except Exception as e:
+                    print(f"Failed to send ticket resolved email for ticket {ticket_id}: {e}")
+            # --- End Email ---
+
             return True
         return False # No row was updated
     except sqlite3.Error as e:
@@ -612,6 +545,16 @@ def reassign_ticket(ticket_id, new_agent_id, admin_id):
     cursor.execute("UPDATE tickets SET agent_id = ? WHERE id = ?", (new_agent_id, ticket_id))
     conn.commit()
     log_activity(admin_id, "ticket_reassigned", "tickets", ticket_id, f"Ticket reassigned to agent ID {new_agent_id}.")
+    
+    # --- Send Email Notification ---
+    if new_agent_id is not None:
+        try:
+            from email_utils import send_ticket_assigned_notification
+            send_ticket_assigned_notification(ticket_id)
+        except Exception as e:
+            print(f"Failed to send ticket reassignment email for ticket {ticket_id}: {e}")
+    # --- End Email ---
+
     conn.close()
     return cursor.rowcount > 0
 
@@ -776,16 +719,18 @@ def update_sla_settings(settings_list, admin_id):
     """
     # Augment the list with the timestamp
     data_to_insert = [(p_id, resp, reso, now) for p_id, resp, reso in settings_list]
-    
-    cursor.executemany(query, data_to_insert)
-    conn.commit()
-    log_activity(admin_id, "sla_updated", "sla_settings", None, f"SLA settings updated for {len(settings_list)} priorities.")
-    conn.close()
+    try:
+        cursor.executemany(query, data_to_insert)
+        conn.commit()
+        log_activity(admin_id, "sla_updated", "sla_settings", None, f"SLA settings updated for {len(settings_list)} priorities.")
+        return cursor.rowcount > 0
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
 
 if __name__ == '__main__':
-    print("Initializing/updating the Suppocket database...")
-    initialize_database()
-
+    pass
     # You can add test code here
     # e.g. print(get_all_users())
     # e.g. print(get_categories())

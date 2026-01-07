@@ -65,7 +65,6 @@ def display_user_management_tab():
                     user_id = create_user(new_username, new_email, new_password, new_role, new_status)
                     if user_id:
                         st.success(f"User '{new_username}' added successfully!")
-                        st.rerun()
                     else:
                         st.error("Failed to add user. Username or Email might already exist.")
 
@@ -141,7 +140,6 @@ def display_user_management_tab():
                             else:
                                 if update_user_admin(user_id, edited_username, edited_email, edited_role, edited_status):
                                     st.success(f"User {edited_username} updated successfully!")
-                                    st.rerun()
                                 else:
                                     st.error("Failed to update user. Please try again.")
 
@@ -152,7 +150,6 @@ def display_user_management_tab():
                 if st.button(f"Toggle Status to '{new_toggle_status.capitalize()}'", key=f"toggle_status_{user_id}"):
                     if update_user_admin(user_id, user['username'], user['email'], user['role'], new_toggle_status):
                         st.success(f"User {user['username']} status changed to '{new_toggle_status}'.")
-                        st.rerun()
                     else:
                         st.error("Failed to change user status.")
 
@@ -165,7 +162,6 @@ def display_user_management_tab():
                     delete_result = delete_user(user_id)
                     if delete_result is True:
                         st.success(f"User {user['username']} deleted successfully.")
-                        st.rerun()
                     elif delete_result == "has_tickets":
                         st.error(f"Cannot delete user {user['username']}. They have associated tickets.")
                     else:
@@ -232,7 +228,6 @@ def display_user_management_tab():
 
                 if reassign_ticket(ticket_id_to_reassign, new_agent_id, admin_id):
                     st.success(f"Ticket #{ticket_id_to_reassign} reassigned successfully to {selected_new_agent_name or 'Unassigned'}.")
-                    st.rerun()
                 else:
                     st.error("Failed to reassign ticket. Please try again.")
 
@@ -258,7 +253,6 @@ def display_category_priority_management_tab():
                     cat_id = add_category(new_cat_name, new_cat_description, new_cat_color)
                     if cat_id:
                         st.success(f"Category '{new_cat_name}' added successfully!")
-                        st.rerun()
                     else:
                         st.error("Failed to add category. Name might already exist.")
 
@@ -299,7 +293,6 @@ def display_category_priority_management_tab():
                         else:
                             if update_category(cat_id, edited_cat_name, edited_cat_description, edited_cat_color):
                                 st.success(f"Category '{edited_cat_name}' updated successfully!")
-                                st.rerun()
                             else:
                                 st.error("Failed to update category. Name might already exist.")
                 
@@ -310,7 +303,6 @@ def display_category_priority_management_tab():
                     if st.button(f"Unarchive Category", key=f"unarchive_cat_{cat_id}"):
                         if archive_category(cat_id, archived=False):
                             st.success(f"Category '{cat_name}' unarchived.")
-                            st.rerun()
                         else:
                             st.error("Failed to unarchive category.")
                 else:
@@ -321,7 +313,6 @@ def display_category_priority_management_tab():
                             st.info("Category has associated tickets. Proceeding with archive.")
                         if archive_category(cat_id, archived=True):
                             st.success(f"Category '{cat_name}' archived.")
-                            st.rerun()
                         else:
                             st.error("Failed to archive category.")
 
@@ -372,7 +363,6 @@ def display_category_priority_management_tab():
                     if edit_prio_submitted:
                         if update_priority(prio_id, prio_name, edited_prio_description, edited_prio_color):
                             st.success(f"Priority '{prio_name}' updated successfully!")
-                            st.rerun()
                         else:
                             st.error("Failed to update priority.")
 
@@ -404,16 +394,46 @@ def display_category_priority_management_tab():
                         admin_id = st.session_state['user']['id']
                         if update_sla_settings([(prio_id, new_response_time, new_resolution_time)], admin_id):
                             st.success(f"SLA for '{prio_name}' updated successfully!")
-                            st.rerun()
                         else:
                             st.error("Failed to update SLA settings.")
 
+# --- Email Settings Tab Function ---
+def display_email_settings_tab():
+    st.header("Email & SMTP Configuration")
+
+    system_settings = get_system_settings()
+    admin_id = st.session_state['user']['id']
+
+    with st.form("email_settings_form"):
+        st.subheader("General Settings")
+        email_enabled = st.checkbox("Enable Email Notifications", value=system_settings.get('email_enabled', 'False').lower() == 'true')
+        from_name = st.text_input("From Name", value=system_settings.get('from_name', 'Suppocket'))
+        from_email = st.text_input("From Email", value=system_settings.get('from_email', 'support@suppocket.com'))
+
+        st.subheader("SMTP Server Settings")
+        st.info("The SMTP password should be set in the `.env` file as `SMTP_PASSWORD` and is not displayed here for security reasons.")
+        
+        smtp_host = st.text_input("SMTP Host", value=system_settings.get('smtp_host', 'smtp.example.com'))
+        smtp_port = st.number_input("SMTP Port", value=int(system_settings.get('smtp_port', 587)))
+        smtp_username = st.text_input("SMTP Username", value=system_settings.get('smtp_username', 'user@example.com'))
+
+        submitted = st.form_submit_button("Save Email Settings")
+
+        if submitted:
+            update_system_setting('email_enabled', str(email_enabled), admin_id)
+            update_system_setting('from_name', from_name, admin_id)
+            update_system_setting('from_email', from_email, admin_id)
+            update_system_setting('smtp_host', smtp_host, admin_id)
+            update_system_setting('smtp_port', str(smtp_port), admin_id)
+            update_system_setting('smtp_username', smtp_username, admin_id)
+            st.success("Email settings saved successfully!")
 # --- Page Structure ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "👤 User Management",
     "🗂️ Category & Priority Management",
     "⏱️ SLA Configuration",
     "⚙️ System Settings",
+    "📧 Email Settings",
     "📜 Activity Logs"
 ])
 
@@ -473,7 +493,6 @@ def display_sla_configuration_tab():
                 admin_id = st.session_state['user']['id']
                 if update_sla_settings(updated_sla_settings, admin_id):
                     st.success("Priority-based SLA settings updated successfully!")
-                    st.rerun()
                 else:
                     st.error("Failed to update priority-based SLA settings.")
 
@@ -505,6 +524,16 @@ def display_sla_configuration_tab():
         default_end_time_obj = datetime.time(17, 0) # Fallback
 
     with st.form("business_hours_form"):
+        st.subheader("SLA Calculation Mode")
+        sla_calc_mode_options = ['calendar_hours', 'business_hours']
+        default_sla_calc_mode = system_settings.get('sla_calculation_mode', 'calendar_hours')
+        sla_calculation_mode = st.selectbox(
+            "SLA Time Calculation",
+            options=sla_calc_mode_options,
+            index=sla_calc_mode_options.index(default_sla_calc_mode),
+            help="Choose how SLA deadlines are calculated. 'calendar_hours' is 24/7. 'business_hours' respects the working hours and days defined below."
+        )
+
         st.subheader("Set Working Hours and Days")
         
         col_time1, col_time2 = st.columns(2)
@@ -529,10 +558,12 @@ def display_sla_configuration_tab():
         timezone_list = pytz.all_timezones
         selected_timezone = st.selectbox("Select Timezone", timezone_list, index=timezone_list.index(default_timezone) if default_timezone in timezone_list else timezone_list.index('UTC'))
 
-        business_hours_submitted = st.form_submit_button("Save Business Hours & Timezone")
+        business_hours_submitted = st.form_submit_button("Save SLA Settings")
 
         if business_hours_submitted:
             admin_id = st.session_state['user']['id']
+            # Save SLA calculation mode
+            update_system_setting('sla_calculation_mode', sla_calculation_mode, admin_id)
             # Save working hours
             update_system_setting('working_hour_start', working_hour_start.isoformat(), admin_id)
             update_system_setting('working_hour_end', working_hour_end.isoformat(), admin_id)
@@ -541,8 +572,7 @@ def display_sla_configuration_tab():
             # Save timezone
             update_system_setting('timezone', selected_timezone, admin_id)
 
-            st.success("Business hours and timezone settings updated successfully!")
-            st.rerun()
+            st.success("SLA settings updated successfully!")
 
     st.markdown("---")
     st.header("SLA Compliance Overview (Under Construction)")
@@ -603,7 +633,6 @@ def display_system_settings_tab():
             update_system_setting('enable_attachments', str(enable_attachments), admin_id)
             
             st.success("Ticket settings updated successfully!")
-            st.rerun()
 
     st.markdown("---")
     st.header("Notification Settings")
@@ -639,7 +668,6 @@ def display_system_settings_tab():
             update_system_setting('notification_events', ','.join(selected_notification_events), admin_id)
             
             st.success("Notification settings updated successfully!")
-            st.rerun()
 
 
     st.markdown("---")
@@ -749,4 +777,7 @@ def display_activity_logs_tab():
             st.info("No logs to export based on current filters.")
 
 with tab5:
+    display_email_settings_tab()
+
+with tab6:
     display_activity_logs_tab()

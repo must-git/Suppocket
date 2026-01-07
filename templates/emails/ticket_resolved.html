@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Your Ticket has been Resolved</title>
+</head>
+<body>
+    <h2>Ticket Resolved: {{ ticket_title }}</h2>
+    <p>Hello {{ customer_name }},</p>
+    <p>Your support ticket with ID <strong>#{{ ticket_id }}</strong> has been marked as resolved.</p>
+    <p>We hope this issue has been handled to your satisfaction. If you feel the issue is not resolved, you can re-open the ticket by replying to this email or by visiting the ticket page:</p>
+    <p><a href="{{ ticket_url }}">{{ ticket_url }}</a></p>
+    <p>If we don't hear from you, the ticket will be automatically closed in a few days.</p>
+    <p>Thank you,<br/>{{ from_name }}</p>
+</body>
+</html>

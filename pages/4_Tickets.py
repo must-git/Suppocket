@@ -1,6 +1,9 @@
 import streamlit as st
 from db.database import get_tickets, get_user, update_ticket, delete_ticket
 from auth_utils import render_sidebar
+from sla_utils import get_business_hours_settings
+import datetime
+import pytz
 
 st.set_page_config(
     page_title="All Tickets",
@@ -57,56 +60,99 @@ elif user_role == 'agent':
 elif user_role == 'admin':
     all_tickets = get_tickets(filters=filters, order_by=order_by)
 
+if user_role in ['agent', 'admin']:
+    sla_settings = get_business_hours_settings()
+    mode_display = "Business Hours" if sla_settings.get('mode') == 'business_hours' else "Calendar Hours (24/7)"
+    st.info(f"SLA Calculation Mode: **{mode_display}** (Timezone: {sla_settings.get('timezone')})")
+
 st.markdown("---")
 
 if all_tickets:
-    # Display headers
-    col1_h, col2_h, col3_h, col4_h, col5_h, col6_h = st.columns([1, 2, 3, 1, 1, 2])
-    with col1_h:
-        st.markdown("##### ID")
-    with col2_h:
-        st.markdown("##### Customer")
-    with col3_h:
-        st.markdown("##### Title")
-    with col4_h:
-        st.markdown("##### Priority")
-    with col5_h:
-        st.markdown("##### Status")
-    with col6_h:
-        st.markdown("##### Action")
+    # Helper function for SLA status
+    def display_sla_status(status):
+        colors = {
+            'Breached': '🔴',
+            'On Track': '🟢',
+            'Pending': '🟡',
+            'Met': '🟢',
+            'N/A': '⚪'
+        }
+        return f"{colors.get(status, '⚪')} {status}"
+
+    # Define columns based on user role
+    if user_role in ['agent', 'admin']:
+        # Wider layout for agents/admins with SLA info
+        header_cols = st.columns([1, 2, 3, 1.5, 1, 1.5, 1.5, 2])
+        column_weights = [1, 2, 3, 1.5, 1, 1.5, 1.5, 2]
+        column_headers = ["ID", "Customer", "Title", "Priority", "Status", "Response SLA", "Resolution SLA", "Action"]
+    else: # Customer view
+        header_cols = st.columns([1, 2, 3, 1, 1, 2])
+        column_weights = [1, 2, 3, 1, 1, 2]
+        column_headers = ["ID", "Customer", "Title", "Priority", "Status", "Action"]
+
+    for col, header in zip(header_cols, column_headers):
+        with col:
+            st.markdown(f"##### {header}")
     st.markdown("---")
 
     for ticket in all_tickets:
-        col1, col2, col3, col4, col5, col6 = st.columns([1, 2, 3, 1, 1, 2])
+        cols = st.columns(column_weights)
         
         customer_info = get_user(user_id=ticket['customer_id'])
         customer_name = customer_info['username'] if customer_info else "Unknown"
 
-        with col1:
-            st.write(f"**#{ticket['id']}**")
-        with col2:
-            st.write(customer_name)
-        with col3:
-            st.write(ticket['title'])
-        with col4:
-            priority_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴', 'Critical': '🔴'}
-            st.write(f"{priority_colors.get(ticket['priority'], '⚪')} {ticket['priority']}")
-        with col5:
-            st.write(ticket['status'])
-        with col6:
+        # --- Common columns for all roles ---
+        cols[0].write(f"**#{ticket['id']}**")
+        cols[1].write(customer_name)
+        cols[2].write(ticket['title'])
+        
+        priority_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴', 'Critical': '🔴'}
+        cols[3].write(f"{priority_colors.get(ticket['priority'], '⚪')} {ticket['priority']}")
+        cols[4].write(ticket['status'])
+
+        # --- Role-specific columns ---
+        if user_role in ['agent', 'admin']:
+            with cols[5]:
+                st.write(display_sla_status(ticket.get('response_status', 'N/A')))
+                if ticket.get('response_due'):
+                    due_date_utc = datetime.datetime.fromisoformat(ticket['response_due'])
+                    due_date_local = due_date_utc.astimezone(sla_settings['timezone'])
+                    st.caption(f"Due: {due_date_local.strftime('%b %d, %H:%M')}")
+            
+            with cols[6]:
+                st.write(display_sla_status(ticket.get('resolution_status', 'N/A')))
+                if ticket.get('resolution_due'):
+                    due_date_utc = datetime.datetime.fromisoformat(ticket['resolution_due'])
+                    due_date_local = due_date_utc.astimezone(sla_settings['timezone'])
+                    st.caption(f"Due: {due_date_local.strftime('%b %d, %H:%M')}")
+
+            action_col = cols[7]
+        else: # Customer
+            action_col = cols[5]
+
+        # --- Action buttons ---
+        with action_col:
+            # "Take On" button for unassigned tickets for agents
             if user_role == 'agent' and ticket['agent_id'] is None:
-                if st.button("Take On", key=f"take_on_{ticket['id']}"):
+                if st.button("Take On", key=f"take_on_{ticket['id']}", use_container_width=True):
                     update_ticket(ticket_id=ticket['id'], user_id_for_log=current_user['id'], agent_id=current_user['id'])
                     st.rerun()
             else:
-                col_view, col_delete = st.columns(2)
-                with col_view:
-                    if st.button("View", key=f"view_{ticket['id']}"):
+                # "View" and "Delete" buttons
+                action_button_cols = st.columns(2)
+                with action_button_cols[0]:
+                    if st.button("View", key=f"view_{ticket['id']}", use_container_width=True):
                         st.session_state['selected_ticket_id'] = ticket['id']
                         st.switch_page("pages/6_Ticket_Details.py")
-                with col_delete:
-                    if st.button("Delete", key=f"delete_{ticket['id']}"):
-                        delete_ticket(ticket_id=ticket['id'], user_id_for_log=current_user['id'])
-                        st.rerun()
+                
+                # Only admins can delete
+                if user_role == 'admin':
+                    with action_button_cols[1]:
+                        if st.button("Delete", key=f"delete_{ticket['id']}", use_container_width=True):
+                            if delete_ticket(ticket_id=ticket['id'], user_id_for_log=current_user['id']):
+                                st.success(f"Ticket #{ticket['id']} deleted.")
+                                st.rerun()
+                            else:
+                                st.error("Failed to delete ticket.")
 else:
     st.info("No tickets to display. Try adjusting the filters.")
