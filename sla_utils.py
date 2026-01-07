@@ -10,7 +10,7 @@ def get_business_hours_settings():
     Retrieves business hours and other SLA settings from the database.
     Returns a dictionary with parsed settings.
     """
-    from db.database import get_system_settings
+    from db.system_settings import get_system_settings
     system_settings = get_system_settings()
 
     # --- Parse SLA Calculation Mode ---

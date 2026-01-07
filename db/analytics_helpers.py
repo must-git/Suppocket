@@ -6,7 +6,7 @@ Returns data ready for visualization with Plotly and Altair.
 import sqlite3
 import pandas as pd
 from datetime import datetime
-from db.database import get_user
+from db.users import get_user
 import re
 from collections import Counter
 import streamlit as st

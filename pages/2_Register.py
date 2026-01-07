@@ -1,5 +1,5 @@
 import streamlit as st
-from db.database import create_user, get_user
+from db.users import create_user, get_user
 from auth_utils import render_sidebar
 
 st.set_page_config(

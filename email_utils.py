@@ -3,7 +3,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
-from db.database import get_system_settings, get_ticket_by_id, get_user
+from db.system_settings import get_system_settings
+from db.users import get_user
 
 # Load environment variables from .env file
 load_dotenv()
@@ -86,6 +87,7 @@ def send_ticket_created_notification(ticket_id):
     """
     Fetches ticket data and sends a 'ticket created' notification to the customer.
     """
+    from db.tickets import get_ticket_by_id
     ticket = get_ticket_by_id(ticket_id)
     if not ticket:
         print(f"Cannot send creation notification: Ticket ID {ticket_id} not found.")
@@ -116,6 +118,7 @@ def send_ticket_assigned_notification(ticket_id):
     """
     Fetches ticket data and sends a 'ticket assigned' notification to the agent.
     """
+    from db.tickets import get_ticket_by_id
     ticket = get_ticket_by_id(ticket_id)
     if not ticket or not ticket.get('agent_id'):
         print(f"Cannot send assignment notification: Ticket {ticket_id} not found or no agent assigned.")
@@ -147,6 +150,7 @@ def send_ticket_resolved_notification(ticket_id):
     """
     Fetches ticket data and sends a 'ticket resolved' notification to the customer.
     """
+    from db.tickets import get_ticket_by_id
     ticket = get_ticket_by_id(ticket_id)
     if not ticket:
         print(f"Cannot send resolved notification: Ticket ID {ticket_id} not found.")

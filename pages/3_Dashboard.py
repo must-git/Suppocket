@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import pytz
-from db.database import get_tickets
+from db.tickets import get_tickets
 from auth_utils import render_sidebar
 from sla_utils import get_business_hours_settings
 

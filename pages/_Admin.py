@@ -4,14 +4,12 @@ import re # For email validation
 import pytz # For timezone selection
 
 from auth_utils import render_sidebar
-from db.database import (
-    get_all_users, create_user, get_user, update_user_admin, delete_user,
-    get_tickets_for_reassignment, reassign_ticket, get_all_agents, get_tickets,
-    get_categories, add_category, update_category, archive_category,
-    get_priorities, update_priority, get_sla_settings, update_sla_settings,
-    get_ticket_counts_by_category, get_system_settings, update_system_setting,
-    get_distinct_activity_users, get_distinct_action_types, get_activity_logs
-)
+from db.users import get_all_users, create_user, get_user, update_user_admin, delete_user, get_all_agents
+from db.tickets import get_tickets_for_reassignment, reassign_ticket, get_tickets, get_ticket_counts_by_category
+from db.categories_priorities import get_categories, add_category, update_category, archive_category, get_priorities, update_priority
+from db.sla_settings import get_sla_settings, update_sla_settings
+from db.system_settings import get_system_settings, update_system_setting
+from db.activity_logs import get_distinct_activity_users, get_distinct_action_types, get_activity_logs
 
 st.set_page_config(
     page_title="Admin Panel",
@@ -231,7 +229,6 @@ def display_user_management_tab():
                 else:
                     st.error("Failed to reassign ticket. Please try again.")
 
-    st.info("This section is under construction.")
 
 # --- Category & Priority Management Tab Function ---
 def display_category_priority_management_tab():
@@ -497,10 +494,6 @@ def display_sla_configuration_tab():
                     st.error("Failed to update priority-based SLA settings.")
 
     st.markdown("---")
-    st.header("SLA Overrides by Category (Under Construction)")
-    st.info("This feature will allow setting custom SLA targets for specific categories, overriding priority-based settings.")
-
-    st.markdown("---")
     st.header("Business Hours Configuration")
 
     # Fetch existing settings
@@ -574,9 +567,9 @@ def display_sla_configuration_tab():
 
             st.success("SLA settings updated successfully!")
 
-    st.markdown("---")
-    st.header("SLA Compliance Overview (Under Construction)")
-    st.info("Display overall SLA compliance rate and identify tickets at risk of breaching SLA.")
+    # st.markdown("---")
+    # st.header("SLA Compliance Overview (Under Construction)")
+    # st.info("Display overall SLA compliance rate and identify tickets at risk of breaching SLA.")
 
 
 with tab3:
@@ -594,44 +587,18 @@ def display_system_settings_tab():
         st.subheader("General Ticket Configuration")
 
         # Ticket ID Prefix
-        default_ticket_prefix = system_settings.get('ticket_id_prefix', 'SUP-')
+        default_ticket_prefix = system_settings.get('ticket_id_prefix', '#')
         ticket_id_prefix = st.text_input("Ticket ID Prefix", value=default_ticket_prefix, help="Prefix for new ticket IDs (e.g., 'SUP-').")
-
-        # Auto-close resolved tickets after X days
-        default_auto_close_days = int(system_settings.get('auto_close_days', 7))
-        auto_close_days = st.number_input(
-            "Auto-close Resolved Tickets After (days)",
-            min_value=0,
-            value=default_auto_close_days,
-            help="Resolved tickets will automatically close after this many days if no further action is taken."
-        )
-
-        # Required fields when creating tickets
-        st.markdown("##### Required Fields for Ticket Creation")
-        default_required_fields_str = system_settings.get('required_ticket_fields', 'title,description,category,priority')
-        default_required_fields = default_required_fields_str.split(',')
-
-        required_fields_options = ['title', 'description', 'category', 'priority']
-        selected_required_fields = []
-        cols = st.columns(len(required_fields_options))
-        for i, field in enumerate(required_fields_options):
-            with cols[i]:
-                if st.checkbox(field.capitalize(), value=(field in default_required_fields), key=f"req_field_{field}"):
-                    selected_required_fields.append(field)
         
         # Enable file attachments toggle
-        default_enable_attachments = system_settings.get('enable_attachments', 'False').lower() == 'true'
-        enable_attachments = st.checkbox("Enable File Attachments", value=default_enable_attachments, help="Allow users to attach files to tickets.")
+        # default_enable_attachments = system_settings.get('enable_attachments', 'False').lower() == 'true'
+        # enable_attachments = st.checkbox("Enable File Attachments", value=default_enable_attachments, help="Allow users to attach files to tickets.")
 
         settings_submitted = st.form_submit_button("Save Ticket Settings")
 
         if settings_submitted:
-            # Update each setting
             update_system_setting('ticket_id_prefix', ticket_id_prefix, admin_id)
-            update_system_setting('auto_close_days', str(auto_close_days), admin_id)
-            update_system_setting('required_ticket_fields', ','.join(selected_required_fields), admin_id)
-            update_system_setting('enable_attachments', str(enable_attachments), admin_id)
-            
+            # update_system_setting('enable_attachments', str(enable_attachments), admin_id)
             st.success("Ticket settings updated successfully!")
 
     st.markdown("---")
@@ -669,11 +636,6 @@ def display_system_settings_tab():
             
             st.success("Notification settings updated successfully!")
 
-
-    st.markdown("---")
-    st.header("Other System Settings (Under Construction)")
-    st.info("Further system-wide configurations will be available here.")
-
 with tab4:
     display_system_settings_tab()
 
@@ -685,7 +647,7 @@ def display_activity_logs_tab():
     if 'activity_log_current_page' not in st.session_state:
         st.session_state['activity_log_current_page'] = 0
 
-    logs_per_page = 50
+    logs_per_page = 10
 
     # --- Filters ---
     st.subheader("Filters")

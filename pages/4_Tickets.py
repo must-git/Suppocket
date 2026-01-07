@@ -1,5 +1,6 @@
 import streamlit as st
-from db.database import get_tickets, get_user, update_ticket, delete_ticket
+from db.tickets import get_tickets, update_ticket, delete_ticket
+from db.users import get_user
 from auth_utils import render_sidebar
 from sla_utils import get_business_hours_settings
 import datetime

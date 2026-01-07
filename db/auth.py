@@ -1,4 +1,4 @@
-from .database import get_user, update_password_hash
+from .users import get_user
 from auth_utils import verify_password
 
 def login_user(username_or_email, password):

@@ -1,5 +1,7 @@
 import streamlit as st
-from db.database import get_ticket_by_id, get_user, update_ticket, get_all_agents, get_priorities
+from db.tickets import update_ticket, get_ticket_by_id
+from db.users import get_user, get_all_agents
+from db.categories_priorities import get_priorities
 from datetime import datetime
 from auth_utils import render_sidebar
 

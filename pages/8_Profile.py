@@ -1,6 +1,6 @@
 import streamlit as st
 from auth_utils import render_sidebar, verify_password
-from db.database import update_user, get_user, update_password_hash
+from db.users import update_user, get_user, update_password_hash
 
 st.set_page_config(
     page_title="Profile",

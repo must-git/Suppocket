@@ -1,5 +1,7 @@
 import streamlit as st
-from db.database import create_ticket, get_user, get_all_customers, get_categories, get_priorities, add_category
+from db.tickets import create_ticket
+from db.users import get_user, get_all_customers
+from db.categories_priorities import get_categories, get_priorities, add_category
 from auth_utils import render_sidebar
 
 st.set_page_config(
