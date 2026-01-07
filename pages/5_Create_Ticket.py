@@ -89,7 +89,5 @@ with st.form("create_ticket_form"):
             )
             if ticket_id:
                 st.success(f"Ticket '{ticket_id}' created successfully!")
-                st.markdown(f"You can view it on the [Dashboard](/Dashboard).")
-                st.rerun() # Rerun to clear form and update options
             else:
                 st.error("Failed to create ticket. Please check category/priority names or other details.")

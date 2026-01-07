@@ -258,7 +258,6 @@ def create_ticket(title, description, customer_id, category_name, priority_name,
             send_ticket_created_notification(ticket_id)
         except Exception as e:
             print(f"Failed to send ticket creation email for ticket {ticket_id}: {e}")
-        # --- End Email ---
 
         return ticket_id
     except sqlite3.Error as e:

@@ -104,7 +104,6 @@ def send_ticket_created_notification(ticket_id):
         "customer_name": customer['username'],
         "ticket_priority": ticket['priority'],
         "ticket_category": ticket['category'],
-        "ticket_url": f"http://localhost:8501/Ticket_Details", # This should be a configurable base URL
         "from_name": config.get('from_name', 'Suppocket Support')
     }
 
@@ -136,8 +135,7 @@ def send_ticket_assigned_notification(ticket_id):
         "ticket_title": ticket['title'],
         "agent_name": agent['username'],
         "ticket_priority": ticket['priority'],
-        "customer_name": customer['username'] if customer else 'N/A',
-        "ticket_url": f"http://localhost:8501/Ticket_Details", # This should be a configurable base URL
+        "customer_name": customer['username'] if customer else 'N/A'
     }
 
     subject = f"You have been assigned a new ticket: #{ticket['id']}"
@@ -165,7 +163,6 @@ def send_ticket_resolved_notification(ticket_id):
         "ticket_id": ticket['id'],
         "ticket_title": ticket['title'],
         "customer_name": customer['username'],
-        "ticket_url": f"http://localhost:8501/Ticket_Details", # This should be a configurable base URL
         "from_name": config.get('from_name', 'Suppocket Support')
     }
 
