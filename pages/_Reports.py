@@ -18,6 +18,13 @@ render_sidebar()
 
 st.title("Report Generator")
 
+# --- Authentication Check ---
+if not st.session_state.get('authenticated') or st.session_state.get('user', {}).get('role') != 'admin':
+    st.error("Access Denied: You must be an administrator to view this page.")
+    if st.button("Go to Login"):
+        st.switch_page("pages/1_Login.py")
+    st.stop()
+
 if not st.session_state.get('authenticated'):
     st.error("You must be logged in to view this page.")
     st.page_link("pages/1_Login.py", label="Login")
@@ -142,6 +149,7 @@ with st.container(border=True):
 st.header("2. Report Preview")
 if st.session_state.get('report_generated', False):
     report_df = st.session_state.get('report_df')
+    report_df = report_df.set_index('id')
     if report_df is None or report_df.empty:
         st.warning("No data matches the selected criteria.")
     else:
@@ -169,32 +177,23 @@ if st.session_state.get('report_generated', False):
         st.markdown("#### Data Table")
         st.dataframe(report_df)
 
-        st.markdown("#### Charts")
-        if report_type == "Category Analysis" and 'category' in report_df.columns:
-            fig = px.bar(report_df['category'].value_counts(), title="Tickets per Category")
-            st.plotly_chart(fig)
-        elif report_type == "Agent Performance" and 'agent_id' in report_df.columns:
-             fig = px.bar(report_df['agent_id'].value_counts(), title="Tickets per Agent")
-             st.plotly_chart(fig)
-        else:
-            st.info(f"Charts for '{report_type}' report type are not yet implemented.")
+        if report_type == "Category Analysis" or report_type == "Agent Performance":
+            st.markdown("#### Charts")
+            if report_type == "Category Analysis" and 'category' in report_df.columns:
+                fig = px.bar(report_df['category'].value_counts(), title="Tickets per Category")
+                st.plotly_chart(fig)
+            elif report_type == "Agent Performance" and 'agent_id' in report_df.columns:
+                fig = px.bar(report_df['agent_id'].value_counts(), title="Tickets per Agent")
+                st.plotly_chart(fig)
 
 # --- 3. EXPORT FUNCTIONALITY ---
 st.header("3. Export Report")
 with st.container(border=True):
     if st.session_state.get('report_generated', False) and st.session_state.get('report_df') is not None and not st.session_state.get('report_df').empty:
         report_df_to_export = st.session_state.get('report_df')
-        e_col1, e_col2, e_col3, e_col4 = st.columns(4)
+        e_col1, e_col2, e_col3 = st.columns(3)
         
         with e_col1:
-            st.download_button(
-                label="📥 Export to PDF",
-                data="PDF generation not implemented yet. This requires additional server-side libraries.",
-                file_name="report.pdf",
-                mime="application/pdf",
-                disabled=True
-            )
-        with e_col2:
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 report_df_to_export.to_excel(writer, sheet_name='Detailed Data', index=False)
@@ -205,7 +204,7 @@ with st.container(border=True):
                 file_name="report.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
-        with e_col3:
+        with e_col2:
             csv = report_df_to_export.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 Export to CSV",
@@ -213,7 +212,7 @@ with st.container(border=True):
                 file_name="report.csv",
                 mime="text/csv",
             )
-        with e_col4:
+        with e_col3:
             json_data = report_df_to_export.to_json(orient='records', indent=4).encode('utf-8')
             st.download_button(
                 label="📥 Export to JSON",
@@ -223,19 +222,3 @@ with st.container(border=True):
             )
     else:
         st.markdown("Generate a report to see export options.")
-
-# --- 4. REPORT TEMPLATES ---
-st.header("4. Report Templates")
-with st.container(border=True):
-    st.info("Saving report configurations and viewing history is not yet implemented.")
-    t_col1, t_col2 = st.columns(2)
-    with t_col1:
-        st.text_input("Save current configuration as:", placeholder="e.g., 'Monthly Agent Report'", disabled=True)
-        st.button("Save Template", disabled=True)
-    with t_col2:
-        st.markdown("##### Quick Reports")
-        st.button("Generate Last Month's Report", disabled=True)
-        st.button("Generate This Week's Report", disabled=True)
-
-    st.markdown("##### Saved Templates / History")
-    st.write("No saved reports yet.")

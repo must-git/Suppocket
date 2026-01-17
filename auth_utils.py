@@ -15,7 +15,7 @@ def render_sidebar():
         st.session_state['user'] = None
 
     if st.session_state.get('authenticated'):
-        st.sidebar.success(f"Logged in as {st.session_state['user']['username']} ({st.session_state['user']['role']})")
+        st.sidebar.success(f"Logged in as {st.session_state['user']['username']}")
         
         st.sidebar.page_link("app.py", label="Home", icon="🏠")
         st.sidebar.page_link("pages/3_Dashboard.py", label="Dashboard", icon="📊")

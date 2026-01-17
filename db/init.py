@@ -7,7 +7,7 @@ def initialize_database():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # --- Create Users Table (with status if not exists) ---
+    # --- Create Users Table ---
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
