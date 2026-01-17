@@ -71,23 +71,7 @@ git clone https://github.com/must-git/suppocket.git # Replace with actual reposi
 cd suppocket
 ```
 
-### 2. Set up a Virtual Environment
-
-It's highly recommended to use a virtual environment to manage dependencies:
-
-**On Windows:**
-```bash
-python -m venv venv
-.\venv\Scripts\activate
-```
-
-**On macOS/Linux:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
+### 2. Install Dependencies
 
 With your virtual environment activated, install the required Python packages:
 
@@ -95,24 +79,9 @@ With your virtual environment activated, install the required Python packages:
 pip install -r requirements.txt
 ```
 
-### 4. Database Setup and Seeding
-
-Suppocket uses a local database. You'll need to initialize the database and optionally seed it with some initial data:
-
-```bash
-# Initialize the database schema (if database.py contains schema creation logic)
-# You might need to run a specific function or script within database.py, e.g.:
-python -c "from db.database import init_db; init_db()" # Example, adjust based on actual database.py content
-
-# Seed initial users
-python db/seed_users.py
-
-# Seed initial tickets
-python db/seed_tickets.py
-```
 **Note:** The exact commands for database initialization might vary depending on the implementation details within `db/database.py`. The above are common patterns; you may need to inspect `db/database.py` for precise instructions if the examples don't work directly.
 
-### 5. Running the Application
+### 3. Running the Application
 
 Once everything is set up, you can run the Streamlit application:
 
